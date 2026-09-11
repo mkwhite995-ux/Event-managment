@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
@@ -31,12 +31,7 @@ const UpdateEvent = () => {
     category: ''
   });
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    fetchEvent();
-  }, [id]);
-
-  const fetchEvent = async () => {
+  const fetchEvent = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       console.log('Fetching event with ID:', id);
@@ -69,7 +64,11 @@ const UpdateEvent = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    fetchEvent();
+  }, [fetchEvent]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
