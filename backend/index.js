@@ -42,7 +42,10 @@ const app = express();
 // Middleware
 const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000').split(',').map(origin => origin.trim()).filter(Boolean);
 app.use(cors({ origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    // Allow configured origins plus Vercel preview/production deployments.
+    // Requests without an Origin header (health checks/server-to-server) remain allowed.
+    const isVercelOrigin = Boolean(origin && /^https:\/\/[^/]+\.vercel\.app$/.test(origin));
+    if (!origin || allowedOrigins.includes(origin) || isVercelOrigin) return callback(null, true);
     return callback(new Error('Origin not allowed by CORS'));
 } }));
 app.use(express.json({ limit: '5mb' }));
