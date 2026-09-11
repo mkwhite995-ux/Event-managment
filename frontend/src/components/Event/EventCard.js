@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Calendar, MapPin, Users, Clock, Edit, Trash2, CheckCircle, User } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { API_URL } from '../../api';
 
 const EventCard = ({ event, isAdmin, onEventDeleted, fetchEvents }) => {
   const [showBookings, setShowBookings] = useState(false);
@@ -12,13 +13,16 @@ const EventCard = ({ event, isAdmin, onEventDeleted, fetchEvents }) => {
 
   const token = localStorage.getItem('token');
   const user = JSON.parse(localStorage.getItem('user'));
+  const isAdminUser = user?.role === 'ADMIN';
+  const isOrganizerOwner = user?.role === 'ORGANIZER' && String(event.organizerId || event.createdBy) === String(user?._id);
+  const canManage = isAdminUser || isOrganizerOwner;
 
   const handleDeleteEvent = async () => {
-    if (!isAdmin) return;
+    if (!canManage) return;
 
     if (window.confirm('Are you sure you want to delete this event?')) {
       try {
-        await axios.delete(`http://localhost:3001/events/${event._id}`, {
+        await axios.delete(`${API_URL}/events/${event._id}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         toast.success('Event deleted successfully');
@@ -39,7 +43,7 @@ const EventCard = ({ event, isAdmin, onEventDeleted, fetchEvents }) => {
 
     try {
       const response = await axios.post(
-        `http://localhost:3001/events/${event._id}/book`,
+        `${API_URL}/events/${event._id}/book`,
         {},
         {
           headers: { Authorization: `Bearer ${token}` }
@@ -70,7 +74,7 @@ const EventCard = ({ event, isAdmin, onEventDeleted, fetchEvents }) => {
 
     try {
       const response = await axios.delete(
-        `http://localhost:3001/events/${event._id}/book`,
+        `${API_URL}/events/${event._id}/book`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -92,7 +96,9 @@ const EventCard = ({ event, isAdmin, onEventDeleted, fetchEvents }) => {
 
   const getUserName = async (userId) => {
     try {
-      const response = await axios.get(`http://localhost:3001/user/${userId}`);
+      const response = await axios.get(`${API_URL}/user/${userId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       return response.data.user.name;
     } catch (error) {
       return 'Unknown User';
@@ -108,10 +114,11 @@ const EventCard = ({ event, isAdmin, onEventDeleted, fetchEvents }) => {
     };
 
     fetchBookedUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showBookings, event.bookedBy]);
 
   const isEventFull = event.bookedBy?.length >= event.capacity;
-  const isAlreadyBooked = event.bookedBy?.includes(user?._id);
+  const isAlreadyBooked = event.bookedBy?.some((bookedUserId) => String(bookedUserId) === String(user?._id));
   const availableSpots = event.capacity - (event.bookedBy?.length || 0);
 
   return (
@@ -122,7 +129,7 @@ const EventCard = ({ event, isAdmin, onEventDeleted, fetchEvents }) => {
     >
       <img src={event.image || '/assets/default-image.jpeg'} alt={event.title} className="event-image" />
       <div className="event-content">
-        <h3 className="event-title">{event.title}</h3>
+        <Link to={`/events/${event._id}`}><h3 className="event-title">{event.title}</h3></Link>
         <div className="event-meta">
           <div className="meta-item">
             <Calendar size={16} />
@@ -143,7 +150,7 @@ const EventCard = ({ event, isAdmin, onEventDeleted, fetchEvents }) => {
         </div>
         <p className="event-description">{event.description}</p>
         
-        {isAdmin && (
+        {isAdminUser && (
           <div className="event-bookings">
             <button 
               className="view-bookings-btn"
@@ -174,7 +181,7 @@ const EventCard = ({ event, isAdmin, onEventDeleted, fetchEvents }) => {
             {event.price === 0 ? 'Free' : `₹${event.price}`}
           </div>
           <div className="event-actions">
-            {isAdmin ? (
+            {canManage ? (
               <>
                 <Link to={`/update-event/${event._id}`}>
                   <motion.button 
@@ -198,7 +205,7 @@ const EventCard = ({ event, isAdmin, onEventDeleted, fetchEvents }) => {
                   Delete
                 </motion.button>
               </>
-            ) : (
+            ) : user?.role === 'PARTICIPANT' ? (
               <>
                 {isAlreadyBooked ? (
                   <motion.button
@@ -222,7 +229,7 @@ const EventCard = ({ event, isAdmin, onEventDeleted, fetchEvents }) => {
                   </motion.button>
                 )}
               </>
-            )}
+            ) : null}
           </div>
         </div>
       </div>

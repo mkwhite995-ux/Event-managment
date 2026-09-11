@@ -13,6 +13,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import EventCard from './EventCard';
 import './Events.css';
+import { API_URL } from '../../api';
 
 const EventList = () => {
   const [events, setEvents] = useState([]);
@@ -21,17 +22,17 @@ const EventList = () => {
   const [filters, setFilters] = useState({
     search: '',
     category: 'all',
-    date: ''
+    date: 'all'
   });
 
   const user = JSON.parse(localStorage.getItem('user'));
-  const isAdmin = user?.role === 'admin';
+  const canCreate = user?.role === 'ADMIN' || user?.role === 'ORGANIZER';
 
   const fetchEvents = async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get('http://localhost:3001/events');
+      const response = await axios.get(`${API_URL}/events`);
       setEvents(response.data);
     } catch (error) {
       console.error('Error fetching events:', error);
@@ -59,10 +60,17 @@ const EventList = () => {
   };
 
   const filteredEvents = events.filter(event => {
-    const matchesSearch = event.title?.toLowerCase().includes(filters.search.toLowerCase()) ||
-                         event.description?.toLowerCase().includes(filters.search.toLowerCase());
+    const query = filters.search.trim().toLowerCase();
+    const matchesSearch = !query || [event.title, event.description, event.category, event.venue]
+      .some(value => String(value || '').toLowerCase().includes(query));
     const matchesCategory = filters.category === 'all' || event.category === filters.category;
-    const matchesDate = !filters.date || new Date(event.date).toLocaleDateString() === new Date(filters.date).toLocaleDateString();
+    const eventDate = new Date(event.date); const now = new Date();
+    const day = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const normalizedEvent = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+    const matchesDate = filters.date === 'all' ||
+      (filters.date === 'upcoming' && normalizedEvent >= day) ||
+      (filters.date === 'today' && normalizedEvent.getTime() === day.getTime()) ||
+      (filters.date.startsWith('specific:') && normalizedEvent.toISOString().slice(0, 10) === filters.date.slice(9));
     
     return matchesSearch && matchesCategory && matchesDate;
   });
@@ -121,7 +129,7 @@ const EventList = () => {
       <div className="events-container">
         <div className="events-header">
           <h1 className="events-title">Upcoming Events</h1>
-          {isAdmin && (
+          {canCreate && (
             <Link to="/create-event">
               <motion.button 
                 className="create-event-btn"
@@ -176,10 +184,12 @@ const EventList = () => {
             <input
               type="date"
               name="date"
-              value={filters.date}
-              onChange={handleFilterChange}
+              value={filters.date.startsWith('specific:') ? filters.date.slice(9) : ''}
+              onChange={(event) => setFilters(prev => ({ ...prev, date: event.target.value ? `specific:${event.target.value}` : 'all' }))}
             />
           </div>
+          <div className="filter-group"><label>Date range</label><select name="date" value={filters.date === 'all' || filters.date.startsWith('specific:') ? 'all' : filters.date} onChange={handleFilterChange}><option value="all">All Dates</option><option value="upcoming">Upcoming</option><option value="today">Today</option></select></div>
+          <button type="button" className="clear-filters-btn" onClick={() => setFilters({ search: '', category: 'all', date: 'all' })}>Clear Filters</button>
         </div>
 
         <motion.div 
@@ -193,7 +203,7 @@ const EventList = () => {
               <EventCard 
                 key={event._id}
                 event={event}
-                isAdmin={isAdmin}
+                isAdmin={user?.role === 'ADMIN'}
                 fetchEvents={fetchEvents}
               />
             ))
@@ -202,9 +212,9 @@ const EventList = () => {
               <AlertCircle size={48} />
               <h3>No Events Found</h3>
               <p>
-                {filters.search || filters.category !== 'all' || filters.date
+                {filters.search || filters.category !== 'all' || filters.date !== 'all'
                   ? 'Try adjusting your filters'
-                  : isAdmin
+                  : user?.role === 'ADMIN'
                   ? 'Create your first event!'
                   : 'Check back later for new events'}
               </p>

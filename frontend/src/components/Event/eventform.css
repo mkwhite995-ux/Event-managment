@@ -242,3 +242,11 @@ textarea.form-control {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+@media (max-width: 700px) {
+  .form-page { padding: 5rem .75rem 1.5rem; }
+  .form-container { width: 100%; }
+  .event-form { padding: 1rem; }
+  .form-grid { grid-template-columns: 1fr !important; }
+  .form-actions { flex-direction: column-reverse; gap: .75rem; }
+  .form-actions button { width: 100%; min-height: 44px; }
+}

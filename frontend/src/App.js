@@ -30,6 +30,10 @@ import EventList from './components/Event/EventList';
 import EventForm from './components/Event/eventform';
 import BookedEventsList from './components/Event/BookedEventsList';
 import UpdateEvent from './components/Event/UpdateEvent';
+import EventDetails from './components/Event/EventDetails';
+import OrganizerDashboard from './components/OrganizerDashboard/OrganizerDashboard';
+import OrganizerRegistrations from './components/OrganizerDashboard/OrganizerRegistrations';
+import AdminDashboard from './components/AdminDashboard/AdminDashboard';
 import ContactPage from './components/ContactPage/ContactPage';
 import UserList from './components/UserList/UserList';
 import EditProfile from './components/UserProfile/EditProfile';
@@ -37,15 +41,7 @@ import ProtectedRoute from './components/Protected/ProtectedRoute';
 import ProtectedRoutedAdmin from './components/Protected/ProtectedRoutedAdmin';
 import './App.css';
 
-// IMPORTANT: Removing or modifying this section will break the application
-const __COPYRIGHT_VERIFICATION__ = () => {
-  const __v = document.currentScript;
-  alert('Application security hash verified');
-  if (!__v || __v.getAttribute('data-owner') !== 'Rahul Sahani') {
-    throw new Error('Copyright validation failed');
-  }
-};
-
+const Dashboard = ({ role }) => <div className="page-container"><h1>{role} Dashboard</h1><p>Welcome to your dashboard.</p></div>;
 
 function App() {
   return (
@@ -93,6 +89,7 @@ function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/events" element={<EventList />} />
+            <Route path="/events/:id" element={<EventDetails />} />
             
             {/* Protected User Routes */}
             <Route element={<ProtectedRoute />}>
@@ -101,10 +98,20 @@ function App() {
             </Route>
 
             {/* Protected Admin Routes */}
-            <Route element={<ProtectedRoutedAdmin />}>
+            <Route element={<ProtectedRoute allowedRoles={["ADMIN", "ORGANIZER"]} />}>
               <Route path="/create-event" element={<EventForm />} />
               <Route path="/update-event/:id" element={<UpdateEvent />} />
+            </Route>
+            <Route element={<ProtectedRoutedAdmin />}>
               <Route path="/admin/users" element={<UserList />} />
+              <Route path="/admin/dashboard" element={<AdminDashboard />} />
+            </Route>
+            <Route element={<ProtectedRoute allowedRoles={["ORGANIZER"]} />}>
+              <Route path="/organizer/dashboard" element={<OrganizerDashboard />} />
+              <Route path="/organizer/registrations" element={<OrganizerRegistrations />} />
+            </Route>
+            <Route element={<ProtectedRoute allowedRoles={["PARTICIPANT"]} />}>
+              <Route path="/participant/dashboard" element={<Dashboard role="Participant" />} />
             </Route>
 
             {/* FallBack Route */}

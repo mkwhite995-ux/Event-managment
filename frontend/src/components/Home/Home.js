@@ -13,10 +13,8 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  Search,
   Star,
   Calendar,
   Users,
@@ -27,11 +25,11 @@ import "./Home.css";
 import toast from "react-hot-toast";
 
 const Home = () => {
-  const [user, setUser] = useState(JSON.parse(localStorage.getItem("user")));
+  const [user] = useState(JSON.parse(localStorage.getItem("user")));
 
   useEffect(() => {
     // Check if user is admin and redirect to admin dashboard
-    if (user?.role === "admin") {
+    if (user?.role === "ADMIN") {
       toast.success("Welcome Admin!");
     } else {
       toast.success("Welcome to GoPlanMe!");

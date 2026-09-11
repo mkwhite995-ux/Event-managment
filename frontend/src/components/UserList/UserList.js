@@ -1,47 +1,54 @@
-import Axios from "axios";
-import { useEffect, useState } from "react";
-import UserListRow from "./UserListRow";
+import { useEffect, useState } from 'react';
+import axios from 'axios';
+import toast from 'react-hot-toast';
+import UserListRow from './UserListRow';
+import './UserList.css';
 
-import "./UserList.css";
-import toast from "react-hot-toast";
+import { API_URL as API_ROUTE } from '../../api';
 
-const API_ROUTE = "http://localhost:4000";
+function UserList() {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-function UserList()
-{
-    const [arr,setArr] = useState([]);
-    useEffect(()=>{
-        Axios.get(API_ROUTE + "/eventRoute/user-list")
-        .then((res)=>{
-            if(res.status === 200)
-                setArr(res.data);
-            else
-                Promise.reject();
-        })
-        .catch((err)=> toast.error("Error fetching user list"));
-    },[]);
-
-    const ListItems = () =>{
-        return arr.map((val,ind)=>{  //[{_id, username, fullName, email, phone},{},{},{}]
-            return <UserListRow obj={val}/>
-        })
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_ROUTE}/user`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setUsers(response.data.users || []);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Error fetching users');
+    } finally {
+      setLoading(false);
     }
-    return (
-        <table className = "userDisplayTable"
-        style={{maxWidth:"60%", margin: "50px auto"}} 
-        border = "1" bordercolor = "white" cellspacing = "0" cellpadding = "5">
-            <thead>
-                <tr>
-                    <th class="text-center">Username</th>
-                    <th class="text-center">Full Name</th>
-                    <th class="text-center">Email</th>
-                    <th class="text-center">Phone</th>
-                </tr>
-            </thead>
-            <tbody>
-                {ListItems()}
-            </tbody>
-        </table>
-    )
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const removeUser = (id) => setUsers((currentUsers) => currentUsers.filter((user) => user._id !== id));
+
+  if (loading) return <p className="user-list-status">Loading users…</p>;
+
+  return (
+    <main className="user-list-page"><div className="user-list-header"><div><h1>User Management</h1><p>View and manage registered users.</p></div><span>{users.length} users</span></div><div className="user-table-container"><table className="userDisplayTable">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Phone</th>
+          <th>Role</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {users.map((user) => <UserListRow key={user._id} user={user} onDeleted={removeUser} />)}
+      </tbody>
+    </table></div></main>
+  );
 }
+
 export default UserList;

@@ -3,11 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Calendar,
-  Clock,
   MapPin,
-  Users,
   DollarSign,
-  Image as ImageIcon,
   Save,
   X,
   Info,
@@ -16,13 +13,13 @@ import {
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import './eventform.css';
+import { API_URL } from '../../api';
 
 const UpdateEvent = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [event, setEvent] = useState(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -34,6 +31,7 @@ const UpdateEvent = () => {
     category: ''
   });
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchEvent();
   }, [id]);
@@ -43,14 +41,12 @@ const UpdateEvent = () => {
       const token = localStorage.getItem('token');
       console.log('Fetching event with ID:', id);
       
-      const response = await axios.get(`http://localhost:3001/events/${id}`, {
+      const response = await axios.get(`${API_URL}/events/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
       const eventData = response.data;
       console.log('Received event data:', eventData);
-      
-      setEvent(eventData);
       
       // Format date for input field
       const formattedDate = new Date(eventData.date).toISOString().split('T')[0];
@@ -95,7 +91,9 @@ const UpdateEvent = () => {
       'price'
     ];
 
-    const emptyFields = requiredFields.filter(field => !formData[field]);
+    const emptyFields = requiredFields.filter(field => (
+      formData[field] === undefined || formData[field] === null || formData[field] === ''
+    ));
     
     if (emptyFields.length > 0) {
       toast.error(`Please fill in: ${emptyFields.join(', ')}`);
@@ -128,7 +126,7 @@ const UpdateEvent = () => {
       console.log('Sending update for event:', id, 'with data:', formData);
       
       const response = await axios.put(
-        `http://localhost:3001/events/${id}`,
+        `${API_URL}/events/${id}`,
         formData,
         {
           headers: {

@@ -14,18 +14,6 @@
   --integrity-check: calc(100vh * var(--copyright-valid, 1));
 }
 
-/* Runtime Style Protection */
-body:not([data-auth="8af2e331c9e77afc"]) .landing-page {
-  display: none !important;
-}
-
-/* Anti-Tampering Mechanism */
-@property --copyright-valid {
-  syntax: '<number>';
-  initial-value: 1;
-  inherits: true;
-}
-
 /* Home Page Styles */
 .landing-page {
   background: linear-gradient(135deg, #f8f9ff 0%, #fff5f5 100%);

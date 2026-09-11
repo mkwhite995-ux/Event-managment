@@ -3,7 +3,7 @@ import Axios from "axios";
 
 import './ContactPage.css'; 
 
-const API_ROUTE = "http://localhost:4000";
+import { API_URL as API_ROUTE } from '../../api';
 
 class ContactPage extends Component {
   constructor(props) {
@@ -22,7 +22,7 @@ class ContactPage extends Component {
       [name]: value,
     });
   };
-  handleSubmit = (e) => {
+  handleSubmit = async (e) => {
     e.preventDefault();
     const errors = {};
     if (!this.state.name.trim()) {
@@ -44,26 +44,22 @@ class ContactPage extends Component {
         message: this.state.message,
       };
 
-      Axios.post(API_ROUTE + "/eventRoute/post-feedback", newFeedback)
-      .then((res) => {
-        if(res.status === 200)
-          alert("Thank you for your feedback!");
-        else
-          Promise.reject();
-      })
-      .catch((err) => alert(err));
-
-      this.setState((prevState) => ({
-        feedback: [...prevState.feedback, newFeedback],
-        errors: {},
-      }));
-
-   
-      this.setState({
-        name: '',
-        email: '',
-        message: '',
-      });
+      try {
+        const response = await Axios.post(`${API_ROUTE}/feedback`, newFeedback);
+        if (!response.data.success) {
+          throw new Error(response.data.message || 'Unable to submit feedback');
+        }
+        alert(response.data.message);
+        this.setState((prevState) => ({
+          feedback: [...prevState.feedback, newFeedback],
+          errors: {},
+          name: '',
+          email: '',
+          message: '',
+        }));
+      } catch (error) {
+        alert(error.response?.data?.message || 'Unable to submit feedback. Please try again.');
+      }
     } else {
      
       this.setState({

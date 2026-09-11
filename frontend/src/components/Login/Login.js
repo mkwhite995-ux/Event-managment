@@ -5,6 +5,7 @@ import { Mail, Lock, LogIn } from 'lucide-react';
 import toast from 'react-hot-toast';
 import axios from 'axios';
 import './Login.css';
+import { API_URL } from '../../api';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -35,7 +36,7 @@ const Login = () => {
       toast.error('Please fill in all fields');
       return false;
     }
-    if (!formData.email.match(/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/)) {
+    if (!formData.email.match(/^\w+([.-]?\w+)*@\w+([.-]?\w+)*([.]\w{2,3})+$/)) {
       toast.error('Please enter a valid email address');
       return false;
     }
@@ -51,7 +52,7 @@ const Login = () => {
     const loadingToast = toast.loading('Signing in...');
 
     try {
-      const response = await axios.post('http://localhost:3001/login', formData);
+      const response = await axios.post(`${API_URL}/login`, formData);
       
       if (response.data.success) {
         // Store auth data

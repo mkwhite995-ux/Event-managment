@@ -29,14 +29,23 @@ const cors = require('cors');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const UserModel = require('./model/userSchema');
+const Feedback = require('./model/feedbackSchema');
+const Event = require('./model/eventSchema');
+const { authenticateToken, authorizeRoles } = require('./middleware/authMiddleware');
 
 require('dotenv').config();
+process.env.NODE_ENV = process.env.NODE_ENV || 'development';
+mongoose.set('strictQuery', true);
 
 const app = express();
 
 // Middleware
-app.use(cors());
-app.use(express.json());
+const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000').split(',').map(origin => origin.trim()).filter(Boolean);
+app.use(cors({ origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('Origin not allowed by CORS'));
+} }));
+app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Request logging middleware
@@ -53,14 +62,41 @@ app.use((req, res, next) => {
 });
 
 // MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI)
-.then(() => console.log('Connected to MongoDB'))
-.catch((err) => console.error('MongoDB connection error:', err));
+// Keep the HTTP server available for health checks, but give a clear error when
+// the local environment has not been configured yet.
+if (!process.env.MONGODB_URI) {
+    console.error('MONGODB_URI is missing. Create backend/.env from backend/.env.example.');
+} else {
+    mongoose.connect(process.env.MONGODB_URI)
+        .then(() => console.log('Connected to MongoDB'))
+        .catch((err) => console.error('MongoDB connection error:', err.message));
+}
+
+app.get('/health', (req, res) => {
+    res.status(mongoose.connection.readyState === 1 ? 200 : 503).json({
+        status: mongoose.connection.readyState === 1 ? 'ok' : 'database-unavailable'
+    });
+});
+
+// Avoid Mongoose buffering requests for a long time when the database is not
+// connected; the frontend receives a useful response immediately instead.
+app.use((req, res, next) => {
+    if (mongoose.connection.readyState !== 1) {
+        return res.status(503).json({
+            message: 'Database is unavailable. Check MONGODB_URI in backend/.env.'
+        });
+    }
+    next();
+});
 
 // Auth Routes
 app.post('/register', async (req, res) => {
     try {
         const { name, email, phone, password } = req.body;
+
+        if (!name || !email || !phone || !password) {
+            return res.status(400).json({ message: 'Name, email, phone, and password are required' });
+        }
 
         // Check if user already exists
         const existingUser = await UserModel.findOne({ email });
@@ -77,7 +113,7 @@ app.post('/register', async (req, res) => {
             email,
             phone,
             password: hashedPassword,
-            role: 'user' // Default role
+            role: 'PARTICIPANT'
         });
 
         await newUser.save();
@@ -96,6 +132,14 @@ app.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
 
+        if (!process.env.JWT_SECRET) {
+            return res.status(500).json({ message: 'Server authentication is not configured' });
+        }
+
+        if (!email || !password) {
+            return res.status(400).json({ message: 'Email and password are required' });
+        }
+
         // Find user
         const user = await UserModel.findOne({ email });
         if (!user) {
@@ -109,8 +153,12 @@ app.post('/login', async (req, res) => {
         }
 
         // Create JWT token
+        const role = user.role === 'admin' ? 'ADMIN' : user.role === 'user' ? 'PARTICIPANT' : user.role;
+        if (!['ADMIN', 'ORGANIZER', 'PARTICIPANT'].includes(role)) {
+            return res.status(403).json({ message: 'User account has an invalid role' });
+        }
         const token = jwt.sign(
-            { userId: user._id, role: user.role },
+            { userId: user._id, role },
             process.env.JWT_SECRET,
             { expiresIn: '24h' }
         );
@@ -121,7 +169,7 @@ app.post('/login', async (req, res) => {
             name: user.name,
             email: user.email,
             phone: user.phone,
-            role: user.role
+            role
         };
 
         res.json({
@@ -143,6 +191,20 @@ const userRoutes = require('./controller/userController');
 // Apply routes with path prefix
 app.use('/', eventRoutes);
 app.use('/user', userRoutes);
+
+app.get('/admin/dashboard', authenticateToken, authorizeRoles('ADMIN'), async (req, res) => {
+    try {
+        const [totalUsers, totalEvents, registrationTotals, recentEvents, recentUsers] = await Promise.all([
+            UserModel.countDocuments(), Event.countDocuments(), Event.aggregate([{ $project: { count: { $size: { $ifNull: ['$bookedBy', []] } } } }, { $group: { _id: null, total: { $sum: '$count' } } }]),
+            Event.find().populate('organizerId', 'name email').sort({ createdAt: -1 }).limit(10),
+            UserModel.find().select('-password').sort({ createdAt: -1 }).limit(10)
+        ]);
+        res.json({ success: true, totalUsers, totalEvents, totalRegistrations: registrationTotals[0]?.total || 0, recentEvents, recentUsers });
+    } catch (error) {
+        console.error('Admin dashboard error:', error);
+        res.status(500).json({ message: 'Unable to load admin dashboard' });
+    }
+});
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -177,4 +239,19 @@ const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log('Environment:', process.env.NODE_ENV);
+});
+
+app.post('/feedback', async (req, res) => {
+    try {
+        const { name, email, message } = req.body;
+        if (!name?.trim() || !email?.trim() || !message?.trim()) {
+            return res.status(400).json({ message: 'Name, email, and message are required' });
+        }
+
+        await Feedback.create({ name: name.trim(), email: email.trim().toLowerCase(), message: message.trim() });
+        res.status(201).json({ success: true, message: 'Thank you for your feedback!' });
+    } catch (error) {
+        console.error('Feedback error:', error);
+        res.status(500).json({ message: 'Unable to submit feedback' });
+    }
 });

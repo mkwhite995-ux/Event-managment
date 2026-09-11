@@ -5,6 +5,7 @@ import { Calendar, MapPin, Clock, Users, AlertCircle, ArrowRight, RefreshCw } fr
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import './Events.css';
+import { API_URL } from '../../api';
 
 const BookedEventsList = () => {
   const [events, setEvents] = useState([]);
@@ -20,7 +21,7 @@ const BookedEventsList = () => {
       console.log('Fetching booked events...');
       
       const response = await axios.get(
-        'http://localhost:3001/user/booked-events',
+        `${API_URL}/user/booked-events`,
         {
           headers: { 
             'Authorization': `Bearer ${token}`
@@ -47,6 +48,7 @@ const BookedEventsList = () => {
 
   useEffect(() => {
     fetchBookedEvents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleRetry = () => {
@@ -56,7 +58,7 @@ const BookedEventsList = () => {
   const handleCancelBooking = async (eventId) => {
     try {
       const response = await axios.delete(
-        `http://localhost:3001/events/${eventId}/book`,
+        `${API_URL}/events/${eventId}/book`,
         {
           headers: { 
             'Authorization': `Bearer ${token}`

@@ -1,0 +1,9 @@
+{
+  "name": "event-management-system",
+  "private": true,
+  "scripts": {
+    "start": "node scripts/start-all.js",
+    "start:frontend": "npm --prefix frontend start",
+    "dev:backend": "npm --prefix backend run dev"
+  }
+}

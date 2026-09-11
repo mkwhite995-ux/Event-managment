@@ -1,36 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const Event = require('../model/eventSchema');
-const jwt = require('jsonwebtoken');
-
-// Authentication Middleware
-const authenticateToken = (req, res, next) => {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-
-    if (!token) {
-        return res.status(401).json({ message: 'Authentication required' });
-    }
-
-    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-        if (err) {
-            return res.status(403).json({ message: 'Invalid or expired token' });
-        }
-        req.user = user;
-        next();
-    });
-};
-
-// Admin Authorization Middleware
-const authorizeAdmin = (req, res, next) => {
-    if (req.user.role !== 'admin') {
-        return res.status(403).json({ message: 'Admin access required' });
-    }
-    next();
-};
+const Registration = require('../model/registrationSchema');
+const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware');
+const canManageEvent = (req, event) => req.user.role === 'ADMIN' ||
+    (req.user.role === 'ORGANIZER' && String(event.organizerId || event.createdBy) === String(req.user.userId));
 
 // Get user's booked events (This route must come before the :id route)
-router.get('/user/booked-events', authenticateToken, async (req, res) => {
+router.get(['/user/booked-events', '/my-registrations'], authenticateToken, authorizeRoles('PARTICIPANT'), async (req, res) => {
     try {
         console.log('Fetching booked events for user:', req.user.userId);
         
@@ -50,6 +27,30 @@ router.get('/user/booked-events', authenticateToken, async (req, res) => {
             success: false,
             message: 'Error fetching booked events' 
         });
+    }
+});
+
+// Registration view: admins see all; organizers see registrations for their own events.
+router.get('/registrations', authenticateToken, authorizeRoles('ADMIN', 'ORGANIZER'), async (req, res) => {
+    try {
+        const filter = req.user.role === 'ADMIN' ? {} : { organizerId: req.user.userId };
+        const events = await Event.find(filter).populate('bookedBy', '-password').sort({ date: 1 });
+        res.json({ success: true, registrations: events });
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching registrations' });
+    }
+});
+
+router.get('/organizer/dashboard', authenticateToken, authorizeRoles('ORGANIZER'), async (req, res) => {
+    try {
+        const myEvents = await Event.find({ organizerId: req.user.userId }).sort({ date: 1 });
+        const now = new Date();
+        const upcomingEvents = myEvents.filter(event => new Date(event.date) >= now && event.status !== 'cancelled' && event.status !== 'completed');
+        const totalRegistrations = myEvents.reduce((total, event) => total + (event.bookedBy?.length || 0), 0);
+        res.json({ success: true, totalEvents: myEvents.length, totalRegistrations, upcomingEvents, myEvents });
+    } catch (error) {
+        console.error('Organizer dashboard error:', error);
+        res.status(500).json({ message: 'Unable to load organizer dashboard' });
     }
 });
 
@@ -88,14 +89,16 @@ router.get('/events/:id', authenticateToken, async (req, res) => {
 });
 
 // Create event (Admin only)
-router.post('/events', authenticateToken, authorizeAdmin, async (req, res) => {
+router.post('/events', authenticateToken, authorizeRoles('ADMIN', 'ORGANIZER'), async (req, res) => {
     try {
         console.log('Creating event with data:', req.body);
         
         const eventData = {
             ...req.body,
-            createdBy: req.user.userId
+            createdBy: req.user.userId,
+            organizerId: req.user.userId
         };
+        delete eventData.role;
 
         const event = new Event(eventData);
         const savedEvent = await event.save();
@@ -120,7 +123,7 @@ router.post('/events', authenticateToken, authorizeAdmin, async (req, res) => {
 });
 
 // Update event (Admin only)
-router.put('/events/:id', authenticateToken, authorizeAdmin, async (req, res) => {
+router.put('/events/:id', authenticateToken, authorizeRoles('ADMIN', 'ORGANIZER'), async (req, res) => {
     try {
         console.log('Updating event:', req.params.id, 'with data:', req.body);
         
@@ -129,9 +132,14 @@ router.put('/events/:id', authenticateToken, authorizeAdmin, async (req, res) =>
         if (!event) {
             return res.status(404).json({ message: 'Event not found' });
         }
+        if (!canManageEvent(req, event)) return res.status(403).json({ message: 'You can only manage your own events' });
 
         // Update fields
-        Object.assign(event, req.body);
+        const updates = { ...req.body };
+        delete updates.createdBy;
+        delete updates.organizerId;
+        delete updates.bookedBy;
+        Object.assign(event, updates);
         
         // Save updated event
         const updatedEvent = await event.save();
@@ -159,7 +167,7 @@ router.put('/events/:id', authenticateToken, authorizeAdmin, async (req, res) =>
 });
 
 // Book event
-router.post('/events/:id/book', authenticateToken, async (req, res) => {
+router.post(['/events/:id/book', '/events/:id/register'], authenticateToken, authorizeRoles('PARTICIPANT'), async (req, res) => {
     try {
         const event = await Event.findById(req.params.id);
         
@@ -167,16 +175,27 @@ router.post('/events/:id/book', authenticateToken, async (req, res) => {
             return res.status(404).json({ message: 'Event not found' });
         }
 
-        if (event.bookedBy.includes(req.user.userId)) {
-            return res.status(400).json({ message: 'You have already booked this event' });
+        const existingRegistration = await Registration.findOne({ userId: req.user.userId, eventId: event._id });
+        if (existingRegistration || event.bookedBy.some(id => id.toString() === req.user.userId)) {
+            return res.status(409).json({ message: 'You are already registered for this event.' });
+        }
+
+        if (event.registrationDeadline && new Date() > new Date(event.registrationDeadline)) {
+            return res.status(400).json({ message: 'Registration deadline has passed' });
         }
 
         if (event.bookedBy.length >= event.capacity) {
             return res.status(400).json({ message: 'Event is fully booked' });
         }
 
+        try {
+            await Registration.create({ userId: req.user.userId, eventId: event._id });
+        } catch (registrationError) {
+            if (registrationError.code === 11000) return res.status(409).json({ message: 'You are already registered for this event.' });
+            throw registrationError;
+        }
+        await Event.updateOne({ _id: event._id }, { $addToSet: { bookedBy: req.user.userId } });
         event.bookedBy.push(req.user.userId);
-        await event.save();
 
         res.json({
             success: true,
@@ -190,7 +209,7 @@ router.post('/events/:id/book', authenticateToken, async (req, res) => {
 });
 
 // Cancel booking
-router.delete('/events/:id/book', authenticateToken, async (req, res) => {
+router.delete(['/events/:id/book', '/events/:id/register'], authenticateToken, authorizeRoles('PARTICIPANT'), async (req, res) => {
     try {
         const event = await Event.findById(req.params.id);
         
@@ -198,10 +217,11 @@ router.delete('/events/:id/book', authenticateToken, async (req, res) => {
             return res.status(404).json({ message: 'Event not found' });
         }
 
-        if (!event.bookedBy.includes(req.user.userId)) {
+        if (!event.bookedBy.some(id => id.toString() === req.user.userId)) {
             return res.status(400).json({ message: 'You have not booked this event' });
         }
 
+        await Registration.deleteOne({ userId: req.user.userId, eventId: event._id });
         event.bookedBy = event.bookedBy.filter(id => id.toString() !== req.user.userId);
         await event.save();
 
@@ -217,15 +237,17 @@ router.delete('/events/:id/book', authenticateToken, async (req, res) => {
 });
 
 // Delete event (Admin only)
-router.delete('/events/:id', authenticateToken, authorizeAdmin, async (req, res) => {
+router.delete('/events/:id', authenticateToken, authorizeRoles('ADMIN', 'ORGANIZER'), async (req, res) => {
     try {
         const event = await Event.findById(req.params.id);
         
         if (!event) {
             return res.status(404).json({ message: 'Event not found' });
         }
+        if (!canManageEvent(req, event)) return res.status(403).json({ message: 'You can only manage your own events' });
 
         await event.deleteOne();
+        await Registration.deleteMany({ eventId: event._id });
         res.json({ 
             success: true,
             message: 'Event deleted successfully' 

@@ -7,8 +7,6 @@ import {
   User, 
   LogOut, 
   Calendar, 
-  Settings,
-  Users,
   PlusCircle,
   BookOpen
 } from 'lucide-react';
@@ -22,8 +20,10 @@ const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const user = JSON.parse(localStorage.getItem('user'));
-  const isAdmin = user?.role === 'admin';
+  let user = null;
+  try { user = JSON.parse(localStorage.getItem('user')); } catch (error) { user = null; }
+  const isAdmin = user?.role === 'ADMIN';
+  const isOrganizer = user?.role === 'ORGANIZER';
 
   useEffect(() => {
     const handleScroll = () => {
@@ -59,20 +59,26 @@ const Navbar = () => {
       to: "/booked-events",
       label: "My Bookings",
       icon: <BookOpen size={20} />,
-      visible: !!user
+      visible: user?.role === 'PARTICIPANT'
     },
     {
       to: "/create-event",
       label: "Create Event",
       icon: <PlusCircle size={20} />,
-      visible: isAdmin
+      visible: isAdmin || isOrganizer
     },
-    // {
-    //   to: "/admin/users",
-    //   label: "Manage Users",
-    //   icon: <Users size={20} />,
-    //   visible: isAdmin
-    // }
+    {
+      to: isAdmin ? "/admin/dashboard" : isOrganizer ? "/organizer/dashboard" : "/participant/dashboard",
+      label: "Dashboard",
+      icon: <BookOpen size={20} />,
+      visible: !!user
+    },
+    {
+      to: "/admin/users",
+      label: "Users",
+      icon: <User size={20} />,
+      visible: isAdmin
+    }
   ];
 
   return (
@@ -131,9 +137,9 @@ const Navbar = () => {
                   onClick={() => setDropdownOpen(!dropdownOpen)}
                 >
                   <div className="user-avatar">
-                    {user.name.charAt(0).toUpperCase()}
+                    {(user.name || user.email || 'U').charAt(0).toUpperCase()}
                   </div>
-                  <span className="user-name">{user.name}</span>
+                  <span className="user-name">{user.name || user.email || 'User'}</span>
                 </button>
 
                 <AnimatePresence>

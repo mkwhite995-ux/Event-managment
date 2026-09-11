@@ -1482,3 +1482,23 @@
     background-position: -200% 0;
   }
 }
+
+.event-image { width: 100%; max-height: 240px; object-fit: cover; }
+.event-title, .event-description { overflow-wrap: anywhere; }
+.event-meta { min-width: 0; }
+.clear-filters-btn { align-self: end; min-height: 42px; padding: .65rem 1rem; border: 0; border-radius: var(--border-radius-md); background: var(--accent-color); color: #fff; cursor: pointer; }
+
+@media (max-width: 768px) {
+  .events-page { padding-top: 88px; }
+  .events-header { align-items: stretch; }
+  .create-event-btn { justify-content: center; }
+  .event-footer { align-items: stretch; }
+}
+
+@media (max-width: 520px) {
+  .events-page { padding: 78px .75rem 1.5rem; }
+  .events-filters { margin-bottom: 1rem; }
+  .event-content { padding: 1rem; }
+  .event-image { max-height: 190px; }
+  .clear-filters-btn { width: 100%; }
+}

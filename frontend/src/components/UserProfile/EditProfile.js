@@ -10,11 +10,11 @@ import {
   X,
   Eye,
   EyeOff,
-  AlertCircle
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import './EditProfile.css';
+import { API_URL } from '../../api';
 
 const EditProfile = () => {
   const navigate = useNavigate();
@@ -37,7 +37,7 @@ const EditProfile = () => {
   const fetchUserProfile = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:3001/user/profile', {
+      const response = await axios.get(`${API_URL}/user/profile`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -61,7 +61,7 @@ const EditProfile = () => {
       toast.error('Name is required');
       return false;
     }
-    if (!userData.email.match(/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/)) {
+    if (!userData.email.match(/^\w+([.-]?\w+)*@\w+([.-]?\w+)*([.]\w{2,3})+$/)) {
       toast.error('Please enter a valid email address');
       return false;
     }
@@ -103,7 +103,7 @@ const EditProfile = () => {
       }
 
       const response = await axios.put(
-        'http://localhost:3001/user/profile',
+        `${API_URL}/user/profile`,
         updateData,
         {
           headers: { Authorization: `Bearer ${token}` }

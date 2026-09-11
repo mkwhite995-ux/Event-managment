@@ -202,3 +202,7 @@
 .contact-item a:hover::after {
   transform: translateX(0);
 }
+@media (max-width: 700px) {
+  .footer-content, .footer-grid { grid-template-columns: 1fr !important; display: grid; gap: 1.25rem; }
+  .footer { padding-left: 1rem; padding-right: 1rem; }
+}

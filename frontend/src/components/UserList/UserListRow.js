@@ -1,63 +1,33 @@
-import Axios from "axios";
-import { Link } from "react-router-dom";
+import axios from 'axios';
+import toast from 'react-hot-toast';
 
-const API_ROUTE = "http://localhost:4000";
+import { API_URL as API_ROUTE } from '../../api';
 
-function UserListRow(props) {
-    const { _id, username, fullName, email, phone, password, bookedEvents} = props.obj; //Object destruction
+function UserListRow({ user, onDeleted }) {
+  const handleDelete = async () => {
+    if (!window.confirm(`Delete ${user.name}'s account?`)) return;
 
-    const handleClick = () => {
-        Axios.all([
-            Axios.delete(API_ROUTE + "/eventRoute/delete-user/" + _id)
-            .then((res) => {
-                if (res.status === 200) {
-                    alert("Record deleted successfully");
-                    window.location.reload();
-                }
-                else
-                    Promise.reject();
-            })
-            .catch((err) => alert(err)),
-
-            Axios.get(API_ROUTE + "/eventRoute/event-list")
-            .then((eventResponse) => {
-                if(eventResponse.status === 200){
-                    //Finding events where current user is registered
-                    const collectedEvents = eventResponse.data;
-                    for(let i = 0; i < collectedEvents.length; i++){
-                        let eventData = collectedEvents[i];
-                        eventData.registeredUsers = eventData.registeredUsers.filter((user) => user.username !== username);
-
-                        Axios.put(API_ROUTE + "/eventRoute/update-event/" + collectedEvents[i]._id, eventData)
-                        .then((updateResponse) => {
-                            if(updateResponse.status === 200)
-                                console.log("Event details updated")
-                            
-                            else
-                                Promise.reject();
-                        })
-                        .catch((updateError) => alert(updateError))
-                    }
-                }
-            }) 
-
-        ])
-        
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.delete(`${API_ROUTE}/user/${user._id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success(response.data.message || 'User deleted successfully');
+      onDeleted(user._id);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Unable to delete user');
     }
+  };
 
-    return (
-        <tr>
-            <td>{username}</td>
-            <td>{fullName}</td>
-            <td>{email}</td>
-            <td>{phone}</td>
-
-            <td class="d-flex justify-content-center">
-                <button onClick={handleClick} class="btn delete-button">
-                    Delete
-                </button>
-            </td>
-        </tr>
-    )
+  return (
+    <tr>
+      <td>{user.name}</td>
+      <td>{user.email}</td>
+      <td>{user.phone}</td>
+      <td>{user.role}</td>
+      <td><button type="button" onClick={handleDelete} className="delete-button">Delete</button></td>
+    </tr>
+  );
 }
+
 export default UserListRow;

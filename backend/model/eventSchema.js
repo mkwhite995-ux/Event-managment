@@ -24,6 +24,9 @@ const eventSchema = new mongoose.Schema({
             return new Date(date);
         }
     },
+    registrationDeadline: {
+        type: Date
+    },
     time: {
         type: String,
         required: [true, 'Event time is required'],
@@ -63,6 +66,11 @@ const eventSchema = new mongoose.Schema({
         type: String
     },
     createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+    },
+    organizerId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: true

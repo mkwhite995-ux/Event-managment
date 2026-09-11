@@ -3,9 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Calendar,
-  Clock,
   MapPin,
-  Users,
   DollarSign,
   Image as ImageIcon,
   Save,
@@ -16,6 +14,7 @@ import {
 import toast from 'react-hot-toast';
 import axios from 'axios';
 import './eventform.css';
+import { API_URL } from '../../api';
 
 const EventForm = () => {
   const navigate = useNavigate();
@@ -25,6 +24,7 @@ const EventForm = () => {
     title: '',
     description: '',
     date: '',
+    registrationDeadline: '',
     time: '',
     venue: '',
     capacity: '',
@@ -44,19 +44,15 @@ const EventForm = () => {
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('Image size should be less than 5MB');
+      if (file.size > 3 * 1024 * 1024) {
+        toast.error('Image size should be less than 3MB');
         return;
       }
 
-      setFormData(prev => ({
-        ...prev,
-        image: file
-      }));
-      
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result);
+        setFormData(prev => ({ ...prev, image: reader.result }));
       };
       reader.readAsDataURL(file);
     }
@@ -111,11 +107,13 @@ const EventForm = () => {
         title: formData.title.trim(),
         description: formData.description.trim(),
         date: formData.date,
+        registrationDeadline: formData.registrationDeadline || undefined,
         time: formData.time,
         venue: formData.venue.trim(),
         category: formData.category,
         capacity: parseInt(formData.capacity),
-        price: parseFloat(formData.price)
+        price: parseFloat(formData.price),
+        image: formData.image
       };
 
       console.log('Submitting event data:', eventPayload);
@@ -125,7 +123,7 @@ const EventForm = () => {
       
       // Make the API call
       const response = await axios.post(
-        'http://localhost:3001/events',
+        `${API_URL}/events`,
         eventPayload,
         {
           headers: {
@@ -257,6 +255,10 @@ const EventForm = () => {
                   min={new Date().toISOString().split('T')[0]}
                 />
               </div>
+              <div className="form-group">
+                <label htmlFor="registrationDeadline">Registration Deadline</label>
+                <input type="datetime-local" id="registrationDeadline" name="registrationDeadline" value={formData.registrationDeadline} onChange={handleChange} className="form-control" disabled={loading} />
+              </div>
 
               <div className="form-group">
                 <label htmlFor="time">Event Time</label>
@@ -345,7 +347,7 @@ const EventForm = () => {
                   <Upload size={48} />
                 </div>
                 <p>Click or drag image to upload</p>
-                <span className="helper-text">Maximum size: 5MB</span>
+                <span className="helper-text">Maximum size: 3MB</span>
                 <input
                   type="file"
                   id="image"
