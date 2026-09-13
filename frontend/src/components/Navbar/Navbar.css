@@ -249,6 +249,9 @@
     transform: translateY(-100%);
     opacity: 0;
     pointer-events: none;
+    z-index: 1000;
+    max-height: calc(100vh - 72px);
+    overflow-y: auto;
     transition: all var(--transition-normal);
   }
 
