@@ -1,6 +1,6 @@
 /*
  * =======================================================================
- *                    GOPLANME EVENT MANAGEMENT SYSTEM
+ *                    EVENT FLOW EVENT MANAGEMENT SYSTEM
  * =======================================================================
  *
  *   Copyright (c) 2024-2025 Rahul Sahani
@@ -32,7 +32,7 @@ const Home = () => {
     if (user?.role === "ADMIN") {
       toast.success("Welcome Admin!");
     } else {
-      toast.success("Welcome to GoPlanMe!");
+      toast.success("Welcome to Event Flow!");
     }
   }, [user]);
 
@@ -43,7 +43,7 @@ const Home = () => {
         <div className="nav-content">
           <div className="logo">
             <Link to="/">
-              <img src="/logo_circle.jpg" alt="GoPlanMe Logo" height="40" />
+              <img src="/logo_circle.jpg" alt="Event Flow Logo" height="40" />
             </Link>
           </div>
           <div className="nav-links">

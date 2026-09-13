@@ -154,7 +154,7 @@ const Login = () => {
             </div>
 
             <div className="auth-divider">
-              <span>New to GoPlanMe?</span>
+              <span>New to Event Flow?</span>
             </div>
 
             <Link to="/register">
