@@ -13,6 +13,7 @@
  */
 
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Star,
@@ -26,6 +27,12 @@ import toast from "react-hot-toast";
 
 const Home = () => {
   const [user] = useState(JSON.parse(localStorage.getItem("user")));
+  const navigate = useNavigate();
+
+  const handleGetStarted = () => {
+    const token = localStorage.getItem("token");
+    navigate(token && user ? "/events" : "/login");
+  };
 
   useEffect(() => {
     // Check if user is admin and redirect to admin dashboard
@@ -209,6 +216,7 @@ const Home = () => {
             className="cta-button"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
+            onClick={handleGetStarted}
           >
             Get Started
           </motion.button>
