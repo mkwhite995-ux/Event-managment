@@ -232,6 +232,7 @@
 @media (max-width: 768px) {
   .mobile-toggle {
     display: block;
+    z-index: 1001;
   }
 
   .navbar-content {
@@ -260,10 +261,23 @@
   .nav-links {
     flex-direction: column;
     align-items: stretch;
+    width: 100%;
+    gap: var(--spacing-sm);
   }
 
   .nav-link {
     padding: var(--spacing-md);
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Keep Login and Sign Up visible and easy to tap in the mobile menu. */
+  .nav-links .nav-button {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding: var(--spacing-md);
+    text-align: center;
   }
 
   .nav-actions {
